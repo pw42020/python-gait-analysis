@@ -1,0 +1,14 @@
+syntax = "proto2";
+
+message instance {
+    message coordinates {
+        int32 x = 1;
+        int32 y = 2;
+        int32 z = 3;
+    }
+
+    coordinates right_shank = 1;
+    coordinates left_shank = 2;
+    coordinates right_thigh = 3;
+    coordinates left_thigh = 4;
+}
