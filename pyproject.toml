@@ -10,6 +10,7 @@ readme = "README.md"
 python = ">=3.10,<3.13"
 numpy = "^1.26.0"
 h5py = "^3.9.0"
+pygame = "^2.5.2"
 
 
 [tool.poetry.group.dev.dependencies]
