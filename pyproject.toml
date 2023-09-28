@@ -12,6 +12,7 @@ numpy = "^1.26.0"
 h5py = "^3.9.0"
 pygame = "^2.5.2"
 protobuf = "^4.24.3"
+tk = "^0.1.0"
 
 
 [tool.poetry.group.dev.dependencies]

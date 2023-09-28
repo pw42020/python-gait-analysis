@@ -416,6 +416,17 @@ spelling = ["pyenchant (>=3.2,<4.0)"]
 testutils = ["gitpython (>3)"]
 
 [[package]]
+name = "tk"
+version = "0.1.0"
+description = "TensorKit is a deep learning helper between Python and C++."
+optional = false
+python-versions = "*"
+files = [
+    {file = "tk-0.1.0-py3-none-any.whl", hash = "sha256:703a69ff0d5ba2bd2f7440582ad10160e4a6561595d33457dc6caa79b9bf4930"},
+    {file = "tk-0.1.0.tar.gz", hash = "sha256:60bc8923d5d35f67f5c6bd93d4f0c49d2048114ec077768f959aef36d4ed97f8"},
+]
+
+[[package]]
 name = "tomli"
 version = "2.0.1"
 description = "A lil' TOML parser"
@@ -535,4 +546,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.13"
-content-hash = "0a8e23feee5bcf244cd1eee7add9bedb296b822661b4031c6eebaa8ef4dba67b"
+content-hash = "8adeb1e49265c4e633d9f5b234a8e62c7cdebdeab3d1966c27792aff35c4d8b0"
