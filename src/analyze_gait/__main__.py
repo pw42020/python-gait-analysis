@@ -2,23 +2,47 @@
 
 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10063557/#CR9
 
-Another link that may be usedful for a database of gait data"""
+Another link that may be usedful for a database of gait data
+
+Note: I'm going to guess that I provide the initial angles and data for
+the position of everything and then the program will calculate the rest"""
 
 import logging
 import sys
 import time
+import csv
+from enum import Enum, auto
 from typing import Final
 from pathlib import Path
 
-import h5py
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 import pygame
+
+
+class LegSide(Enum):
+    """the type of data that is being used"""
+
+    LEFT: Final[int] = auto()
+    RIGHT: Final[int] = auto()
+
 
 # global variables
 
 WIDTH: Final[int] = 640
 HEIGHT: Final[int] = 480
-LENGTH: Final[int] = 50
+
+# leg stuff
+LENGTH: Final[int] = 70  # length from shaft to knee or thigh to knee
+LEG_TO_CENTER: Final[int] = 5  # distance from center of leg to center of screen
+DEFAULT_LEG_POSITIONS: Final[dict[str, tuple[int, int]]] = {
+    "LS": (WIDTH / 2 - LEG_TO_CENTER, HEIGHT / 2 + LENGTH),
+    "RS": (WIDTH / 2 + LEG_TO_CENTER, HEIGHT / 2 - LENGTH),
+    "LT": (WIDTH / 2 - LEG_TO_CENTER, HEIGHT / 2 - LENGTH),
+    "RT": (WIDTH / 2 + LEG_TO_CENTER, HEIGHT / 2 + LENGTH),
+}
+
+SAMPLES_PER_SECOND: Final[int] = 50
 
 
 pygame.display.init()
@@ -27,6 +51,7 @@ pygame.display.set_caption("Gait Visualization")
 
 
 PATH_TO_ASSETS = Path(__file__).parent.parent.parent / "assets"
+PATH_TO_ORIENTATION_DATA = PATH_TO_ASSETS / "P15"
 sys.path.append(str(PATH_TO_ASSETS))
 
 # pylint: disable=wrong-import-position
@@ -52,84 +77,26 @@ ch.setFormatter(CustomFormatter())
 log.addHandler(ch)
 
 # global variables
-HD5_FILE = PATH_TO_ASSETS / "MP101.hdf5"  # labelling as constant as of right now
 
 
-def init() -> tuple[np.ndarray[np.real]]:
-    """initialize the data from the hdf5 file
+def init() -> dict[str, np.ndarray[float]]:
+    """initialize the program"""
+    return_dictionary: dict[str, np.ndarray[float]] = {}
+    for csv_filename in DEFAULT_LEG_POSITIONS.keys():
+        with open(
+            PATH_TO_ORIENTATION_DATA / f"{csv_filename}.csv", newline=""
+        ) as csvfile:
+            reader = csv.reader(csvfile, delimiter=",")
+            data = np.array(list(reader)[1:], dtype=float)
+            return_dictionary.update({csv_filename: data})
 
-    Returns
-    -------
-    tuple[np.ndarray[np.real]]
-        the time, left shank, left thigh, right shank, and right thigh data
-
-    Raises
-    ------
-    AssertionError
-        if the data is not the same length
-    OSError
-        if the file cannot be opened or cannot be found"""
-    file: h5py.File = h5py.File(HD5_FILE, "r")
-
-    log.debug("Keys: %s", list(file.keys()))
-    print(list(file["Day_1"]["Trial_01"]))
-    # print(file["Meta"]["Code"])
-
-    time_arr: np.ndarray[np.real] = np.array(file["Day_1"]["Trial_01"]["Time"])
-    log.debug("time generated with shape %s", time_arr.shape)
-    left_shank: np.ndarray[np.real] = np.array(
-        file["Day_1"]["Trial_01"]["Acc_Left_Shank"]
-    )
-    log.debug("left_shank generated with shape %s", left_shank.shape)
-    left_thigh: np.ndarray[np.real] = np.array(
-        file["Day_1"]["Trial_01"]["Acc_Left_Thigh"]
-    )
-    log.debug("left thigh generated with shape %s", left_thigh.shape)
-    right_shank: np.ndarray[np.real] = np.array(
-        file["Day_1"]["Trial_01"]["Acc_Right_Shank"]
-    )
-    log.debug("right shank generated with shape %s", right_shank.shape)
-    right_thigh: np.ndarray[np.real] = np.array(
-        file["Day_1"]["Trial_01"]["Acc_Right_Thigh"]
-    )
-    log.debug("right thigh generated with shape %s", right_thigh.shape)
-
-    # get right and left knee
-    right_knee: np.ndarray[np.real] = np.array(
-        file["Day_1"]["Trial_01"]["Ang_Right_Knee"]
-    )
-    log.debug("right knee generated with shape %s", right_knee.shape)
-
-    left_knee: np.ndarray[np.real] = np.array(
-        file["Day_1"]["Trial_01"]["Ang_Left_Knee"]
-    )
-    log.debug("left knee generated with shape %s", left_knee.shape)
-
-    file.close()
-
-    assert (
-        time_arr.shape[0]
-        == left_shank.shape[0]
-        == left_thigh.shape[0]
-        == right_shank.shape[0]
-        == right_thigh.shape[0]
-        == left_knee.shape[0]
-        == right_knee.shape[0]
-    ), "all arrays must be the same length"
-
-    return (
-        time_arr,
-        left_shank,
-        left_thigh,
-        right_shank,
-        right_thigh,
-        left_knee,
-        right_knee,
-    )
+    return return_dictionary
 
 
 def get_knee_pos(
-    shank: np.ndarray[np.real], thigh: np.ndarray[np.real]
+    thigh: tuple[float, float],
+    thigh_pitch: float,
+    legside: LegSide,
 ) -> tuple[np.ndarray[np.real]]:
     """getting the knee position based on the shank and thigh
 
@@ -140,42 +107,33 @@ def get_knee_pos(
     thigh : np.ndarray[np.real]
         the thigh data"""
 
-    log.debug("shank position: %s", shank)
-    log.debug("thigh position: %s", thigh)
-
-    d_shank_thigh: np.real = np.sqrt(
-        np.power(shank[0] - thigh[0], 2) + np.power(shank[1] - thigh[1], 2)
+    return (
+        thigh[0] - LENGTH * np.sin(thigh_pitch[0] * np.pi / 180),
+        thigh[1] - LENGTH * np.cos(thigh_pitch[0] * np.pi / 180),
     )
 
-    log.debug("distance between shank and thigh: %s", d_shank_thigh)
 
-    # now new triangle has thigh at (0,0) and shank at (d_shank_thigh, 0)
-    # and knee at (x, y)
-    # (x^2) + y^2 = LENGTH^2
-    # (x-d_shank_thigh)^2 + y^2 = LENGTH^2
-    # x^2 - 2xd_shank_thigh + d_shank_thigh^2 + y^2 = LENGTH^2
-    # x = d_shank_thigh^2/(2*d_shank_thigh)
-    # y = sqrt(LENGTH^2 - x^2)
-    x: np.real = np.power(d_shank_thigh, 2) / (2 * d_shank_thigh)
-    y: np.real = np.sqrt(np.power(LENGTH, 2) - np.power(x, 2))
+def convert_quat_to_euler(quat: np.ndarray[np.real]) -> np.ndarray[np.real]:
+    """convert a quaternion to euler angles
 
-    # bring x and y back into their respective place
-    x += thigh[0]
-    y += thigh[1]
+    Parameters
+    ----------
+    quat : np.ndarray[np.real]
+        the quaternion to convert
 
-    # rotate triangle back into place
-    # theta: np.real = np.arctan((shank[1] - thigh[1]) / (shank[0] - thigh[0]))
+    Returns
+    -------
+    np.ndarray[np.real]
+        the euler angles of the quaternion"""
 
-    # x = x * np.cos(theta) - y * np.sin(theta)
-    # y = x * np.sin(theta) + y * np.cos(theta)
+    euler_angles = R.from_quat(quat).as_euler("xyz", degrees=True)
 
-    log.debug("knee position: %s", (x, y))
-
-    return (x, y)
+    log.debug("euler angles: %s", euler_angles)
+    return euler_angles
 
 
-def get_coordinates(data: np.ndarray[np.real]) -> tuple[np.real]:
-    """get the coordinates of the data
+def get_thigh_pos(data: np.ndarray[np.real], legside: LegSide) -> tuple[np.real]:
+    """get the coordinates of the thigh
 
     Parameters
     ----------
@@ -192,54 +150,85 @@ def get_coordinates(data: np.ndarray[np.real]) -> tuple[np.real]:
     The coordinates are centered meaning that at (0, 0) the coordinates will
     be in the middle of the screen"""
 
-    x: np.real = data[0] * LENGTH / 4 + WIDTH / 2
-    y: np.real = data[1] * LENGTH / 4 + HEIGHT / 2
+    return DEFAULT_LEG_POSITIONS["LT" if legside == LegSide.LEFT else "RT"]
 
-    log.info("coordinates for data: %s", (x, y))
 
-    return (x, y)
+def get_shank_pos(
+    shank_data: np.ndarray[np.real], knee_pos: tuple[float, float], legside: LegSide
+) -> tuple[np.real]:
+    """get the coordinates of the thigh
+
+    Parameters
+    ----------
+    data : np.ndarray[np.real]
+        the data to get the coordinates of
+
+    Returns
+    -------
+    tuple[np.real]
+        the coordinates of the data
+
+    Notes
+    -----
+    The coordinates are centered meaning that at (0, 0) the coordinates will
+    be in the middle of the screen"""
+
+    return (
+        knee_pos[0] - LENGTH * np.sin(shank_data[0] * np.pi / 180),
+        knee_pos[1] - LENGTH * np.cos(shank_data[0] * np.pi / 180),
+    )
 
 
 def main() -> None:
     """main function"""
-    (
-        time_arr,
-        left_shank,
-        left_thigh,
-        right_shank,
-        right_thigh,
-        left_knee,
-        right_knee,
-    ) = init()
+    leg_data: Final[dict[str, np.ndarray[np.real]]] = init()
     i = 0
-    return
-    while True:
-        print(i)
+    while i != leg_data["LS"].shape[0] - 1:
         screen.fill((0, 0, 0))
-        # for 2d knee angle, only the Y andZ coordinates are required
-        l_shank_pos = get_coordinates(left_shank[i])
-        l_thigh_pos = get_coordinates(left_thigh[i])
-        l_knee_pos = get_knee_pos(l_shank_pos, l_thigh_pos)
 
-        # create two lines for shank -> knee and knee -> thigh
-        pygame.draw.line(screen, (255, 255, 255), l_shank_pos, l_knee_pos, 1)
-        pygame.draw.line(screen, (255, 255, 255), l_knee_pos, l_thigh_pos, 1)
+        l_thigh = get_thigh_pos(
+            data=convert_quat_to_euler(leg_data["LT"][i]), legside=LegSide.LEFT
+        )
+        l_knee = get_knee_pos(
+            thigh=l_thigh,
+            thigh_pitch=convert_quat_to_euler(leg_data["LT"][i]),
+            legside=LegSide.LEFT,
+        )
+        l_shank = get_shank_pos(
+            shank_data=convert_quat_to_euler(leg_data["LS"][i]),
+            knee_pos=l_knee,
+            legside=LegSide.LEFT,
+        )
 
-        # for 2d knee angle, only the Y andZ coordinates are required
-        DEFAULT_LEG_DIFF: Final[
-            int
-        ] = 50  # difference between legs in starting position
-        r_shank_pos = get_coordinates(left_shank[i])
-        r_shank_pos = (r_shank_pos[0] + DEFAULT_LEG_DIFF, r_shank_pos[1])
+        log.debug("l_thigh: %s", l_thigh)
+        log.debug("l_knee: %s", l_knee)
+        log.debug("l_shank: %s", l_shank)
 
-        r_thigh_pos = get_coordinates(left_thigh[i])
-        r_thigh_pos = (r_thigh_pos[0] + DEFAULT_LEG_DIFF, r_thigh_pos[1])
+        # create line from shank to knee and knee to thigh
+        pygame.draw.line(screen, (255, 255, 255), l_shank, l_knee)
+        pygame.draw.line(screen, (255, 255, 255), l_knee, l_thigh)
 
-        r_knee_pos = get_knee_pos(r_shank_pos, r_thigh_pos)
+        # r_thigh = get_thigh_pos(
+        #     data=convert_quat_to_euler(leg_data["RT"][i]), legside=LegSide.RIGHT
+        # )
+        # r_knee = get_knee_pos(
+        #     thigh=r_thigh,
+        #     thigh_pitch=convert_quat_to_euler(leg_data["RT"][i]),
+        #     legside=LegSide.RIGHT,
+        # )
+        # r_shank = get_shank_pos(
+        #     shank_data=convert_quat_to_euler(leg_data["RS"][i]),
+        #     knee_pos=r_knee,
+        #     legside=LegSide.RIGHT,
+        # )
 
-        # create two lines for shank -> knee and knee -> thigh
-        pygame.draw.line(screen, (0, 255, 0), r_shank_pos, r_knee_pos, 1)
-        pygame.draw.line(screen, (0, 255, 0), r_knee_pos, r_thigh_pos, 1)
+        # log.debug("r_thigh: %s", r_thigh)
+        # log.debug("r_knee: %s", r_knee)
+        # log.debug("r_shank: %s", r_shank)
+
+        # # create line from shank to knee and knee to thigh
+        # pygame.draw.line(screen, (255, 255, 255), r_shank, r_knee)
+        # pygame.draw.line(screen, (255, 255, 255), r_knee, r_thigh)
 
         for event in pygame.event.get():
             # pylint: disable-next=no-member
@@ -247,13 +236,10 @@ def main() -> None:
                 pygame.display.quit()
                 sys.exit(1)
 
-        time.sleep(time_arr[i + 1] - time_arr[i])
+        time.sleep(1 / SAMPLES_PER_SECOND)
         # refreshes screen
         pygame.display.flip()
-        if i < time_arr.shape[0] - 2:
-            i += 1
-        else:
-            i = 0
+        i += 1
 
 
 if __name__ == "__main__":
