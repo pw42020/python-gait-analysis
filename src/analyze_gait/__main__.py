@@ -17,6 +17,7 @@ from pathlib import Path
 
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+import scipy.io as sio
 import pygame
 
 
@@ -34,15 +35,15 @@ HEIGHT: Final[int] = 480
 
 # leg stuff
 LENGTH: Final[int] = 70  # length from shaft to knee or thigh to knee
-LEG_TO_CENTER: Final[int] = 5  # distance from center of leg to center of screen
+LEG_TO_CENTER: Final[int] = 10  # distance from center of leg to center of screen
 DEFAULT_LEG_POSITIONS: Final[dict[str, tuple[int, int]]] = {
     "LS": (WIDTH / 2 - LEG_TO_CENTER, HEIGHT / 2 + LENGTH),
-    "RS": (WIDTH / 2 + LEG_TO_CENTER, HEIGHT / 2 - LENGTH),
+    "RS": (WIDTH / 2 + LEG_TO_CENTER, HEIGHT / 2 + LENGTH),
     "LT": (WIDTH / 2 - LEG_TO_CENTER, HEIGHT / 2 - LENGTH),
-    "RT": (WIDTH / 2 + LEG_TO_CENTER, HEIGHT / 2 + LENGTH),
+    "RT": (WIDTH / 2 + LEG_TO_CENTER, HEIGHT / 2 - LENGTH),
 }
 
-SAMPLES_PER_SECOND: Final[int] = 50
+SAMPLES_PER_SECOND: Final[int] = 500
 
 
 pygame.display.init()
@@ -82,20 +83,32 @@ log.addHandler(ch)
 def init() -> dict[str, np.ndarray[float]]:
     """initialize the program"""
     return_dictionary: dict[str, np.ndarray[float]] = {}
-    for csv_filename in DEFAULT_LEG_POSITIONS.keys():
-        with open(
-            PATH_TO_ORIENTATION_DATA / f"{csv_filename}.csv", newline=""
-        ) as csvfile:
-            reader = csv.reader(csvfile, delimiter=",")
-            data = np.array(list(reader)[1:], dtype=float)
-            return_dictionary.update({csv_filename: data})
+    with open(PATH_TO_ASSETS / "leg_data.csv", newline="") as csvfile:
+        reader = csv.reader(csvfile, delimiter=",")
+        data = list(reader)[1:]
+        return_dictionary.update(
+            {"RS": [[float(row[0]), float(row[1]), float(row[2])] for row in data]}
+        )
+        return_dictionary.update(
+            {"RT": [[float(row[6]), float(row[7]), float(row[8])] for row in data]}
+        )
+        return_dictionary.update(
+            {"LS": [[float(row[12]), float(row[13]), float(row[14])] for row in data]}
+        )
+        return_dictionary.update(
+            {"LT": [[float(row[18]), float(row[19]), float(row[20])] for row in data]}
+        )
+
+        del data  # to get some more space
+    # sio_data = sio.loadmat(PATH_TO_ASSETS / "DataShort.mat")
+    # print(sio_data["DataShort"])
 
     return return_dictionary
 
 
 def get_knee_pos(
     thigh: tuple[float, float],
-    thigh_pitch: float,
+    thigh_pitch: np.ndarray[float],
     legside: LegSide,
 ) -> tuple[np.ndarray[np.real]]:
     """getting the knee position based on the shank and thigh
@@ -108,8 +121,8 @@ def get_knee_pos(
         the thigh data"""
 
     return (
-        thigh[0] - LENGTH * np.sin(thigh_pitch[0] * np.pi / 180),
-        thigh[1] - LENGTH * np.cos(thigh_pitch[0] * np.pi / 180),
+        thigh[0] - LENGTH * np.sin(thigh_pitch[0]),
+        thigh[1] + LENGTH * np.cos(thigh_pitch[0]),
     )
 
 
@@ -173,29 +186,30 @@ def get_shank_pos(
     The coordinates are centered meaning that at (0, 0) the coordinates will
     be in the middle of the screen"""
 
-    return (
-        knee_pos[0] - LENGTH * np.sin(shank_data[0] * np.pi / 180),
-        knee_pos[1] - LENGTH * np.cos(shank_data[0] * np.pi / 180),
+    ret_tuple = (
+        knee_pos[0] + LENGTH * np.sin(shank_data[2]),
+        knee_pos[1] + LENGTH * np.cos(shank_data[2]),
     )
+    log.debug("ret_tuple: %s", ret_tuple)
+    return ret_tuple
 
 
 def main() -> None:
     """main function"""
     leg_data: Final[dict[str, np.ndarray[np.real]]] = init()
-    i = 0
-    while i != leg_data["LS"].shape[0] - 1:
+    i = 1422
+
+    while i != len(leg_data["LS"]) - 1:
         screen.fill((0, 0, 0))
 
-        l_thigh = get_thigh_pos(
-            data=convert_quat_to_euler(leg_data["LT"][i]), legside=LegSide.LEFT
-        )
+        l_thigh = get_thigh_pos(data=leg_data["LT"][i], legside=LegSide.LEFT)
         l_knee = get_knee_pos(
             thigh=l_thigh,
-            thigh_pitch=convert_quat_to_euler(leg_data["LT"][i]),
+            thigh_pitch=leg_data["LT"][i],
             legside=LegSide.LEFT,
         )
         l_shank = get_shank_pos(
-            shank_data=convert_quat_to_euler(leg_data["LS"][i]),
+            shank_data=leg_data["LS"][i],
             knee_pos=l_knee,
             legside=LegSide.LEFT,
         )
@@ -208,27 +222,27 @@ def main() -> None:
         pygame.draw.line(screen, (255, 255, 255), l_shank, l_knee)
         pygame.draw.line(screen, (255, 255, 255), l_knee, l_thigh)
 
-        # r_thigh = get_thigh_pos(
-        #     data=convert_quat_to_euler(leg_data["RT"][i]), legside=LegSide.RIGHT
-        # )
-        # r_knee = get_knee_pos(
-        #     thigh=r_thigh,
-        #     thigh_pitch=convert_quat_to_euler(leg_data["RT"][i]),
-        #     legside=LegSide.RIGHT,
-        # )
-        # r_shank = get_shank_pos(
-        #     shank_data=convert_quat_to_euler(leg_data["RS"][i]),
-        #     knee_pos=r_knee,
-        #     legside=LegSide.RIGHT,
-        # )
+        r_thigh = get_thigh_pos(data=leg_data["RT"][i], legside=LegSide.RIGHT)
+        r_knee = get_knee_pos(
+            thigh=r_thigh,
+            thigh_pitch=leg_data["RT"][i],  # convert_quat_to_euler(leg_data["RT"][i])
+            legside=LegSide.RIGHT,
+        )
+        r_shank = get_shank_pos(
+            shank_data=leg_data["RS"][i],
+            knee_pos=r_knee,
+            legside=LegSide.RIGHT,
+        )
 
-        # log.debug("r_thigh: %s", r_thigh)
-        # log.debug("r_knee: %s", r_knee)
-        # log.debug("r_shank: %s", r_shank)
+        log.debug("r_thigh: %s", r_thigh)
+        log.debug("r_knee: %s", r_knee)
+        log.debug("r_shank: %s", r_shank)
 
-        # # create line from shank to knee and knee to thigh
-        # pygame.draw.line(screen, (255, 255, 255), r_shank, r_knee)
-        # pygame.draw.line(screen, (255, 255, 255), r_knee, r_thigh)
+        # create line from shank to knee and knee to thigh
+        pygame.draw.line(screen, (255, 255, 255), r_shank, r_knee)
+        pygame.draw.line(screen, (255, 255, 255), r_knee, r_thigh)
+
+        pygame.draw.line(screen, (255, 255, 255), l_thigh, r_thigh)
 
         for event in pygame.event.get():
             # pylint: disable-next=no-member
