@@ -1,4 +1,13 @@
-"""reads file assets, and then sends the data as a zmq server"""
+"""reads file assets, and then sends the data as a zmq server
+
+References
+----------
+Hu B, Rouse E, Hargrove L. Benchmark Datasets for Bilateral Lower-Limb
+Neuromechanical Signals from Wearable Sensors during Unassisted Locomotion
+in Able-Bodied Individuals. Front Robot AI. 2018 Feb 19;5:14.
+doi: 10.3389/frobt.2018.00014. Erratum in: Front Robot AI. 2018 Nov 20;5:127.'
+PMID: 33500901; PMCID: PMC7805660.
+"""
 import logging
 import sys
 import time
