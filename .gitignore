@@ -10,6 +10,9 @@ __pycache__/
 # for not adding .hdf5 files as they're HUGE
 *.hdf5
 
+assets/P15/
+assets/*.csv
+
 # C extensions
 *.so
 
