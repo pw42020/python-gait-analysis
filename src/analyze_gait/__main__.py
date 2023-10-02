@@ -17,8 +17,16 @@ from pathlib import Path
 
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-import scipy.io as sio
 import pygame
+import zmq
+
+PATH_TO_ASSETS = Path(__file__).parent.parent.parent / "assets"
+sys.path.append(str(PATH_TO_ASSETS))
+
+# pylint: disable=wrong-import-position
+# pylint: disable=import-error
+from logging_formatter import CustomFormatter
+import shank_thigh_send_pb2 as pb  # protocol buffer python formatted library
 
 
 class LegSide(Enum):
@@ -32,6 +40,8 @@ class LegSide(Enum):
 
 WIDTH: Final[int] = 640
 HEIGHT: Final[int] = 480
+
+TOPIC: Final[str] = "LEG_DATA"
 
 # leg stuff
 LENGTH: Final[int] = 70  # length from shaft to knee or thigh to knee
@@ -51,15 +61,6 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Gait Visualization")
 
 
-PATH_TO_ASSETS = Path(__file__).parent.parent.parent / "assets"
-PATH_TO_ORIENTATION_DATA = PATH_TO_ASSETS / "P15"
-sys.path.append(str(PATH_TO_ASSETS))
-
-# pylint: disable=wrong-import-position
-# pylint: disable=import-error
-from logging_formatter import CustomFormatter
-
-
 pygame_icon = pygame.image.load(PATH_TO_ASSETS / "shoes_icon.png")
 pygame.display.set_icon(pygame_icon)
 
@@ -76,34 +77,6 @@ ch.setLevel(logging.DEBUG)
 ch.setFormatter(CustomFormatter())
 
 log.addHandler(ch)
-
-# global variables
-
-
-def init() -> dict[str, np.ndarray[float]]:
-    """initialize the program"""
-    return_dictionary: dict[str, np.ndarray[float]] = {}
-    with open(PATH_TO_ASSETS / "leg_data.csv", newline="") as csvfile:
-        reader = csv.reader(csvfile, delimiter=",")
-        data = list(reader)[1:]
-        return_dictionary.update(
-            {"RS": [[float(row[0]), float(row[1]), float(row[2])] for row in data]}
-        )
-        return_dictionary.update(
-            {"RT": [[float(row[6]), float(row[7]), float(row[8])] for row in data]}
-        )
-        return_dictionary.update(
-            {"LS": [[float(row[12]), float(row[13]), float(row[14])] for row in data]}
-        )
-        return_dictionary.update(
-            {"LT": [[float(row[18]), float(row[19]), float(row[20])] for row in data]}
-        )
-
-        del data  # to get some more space
-    # sio_data = sio.loadmat(PATH_TO_ASSETS / "DataShort.mat")
-    # print(sio_data["DataShort"])
-
-    return return_dictionary
 
 
 def get_knee_pos(
@@ -194,22 +167,66 @@ def get_shank_pos(
     return ret_tuple
 
 
+def initialize_zmq_client(ip_address: str, port: int) -> tuple[zmq.Context, zmq.Socket]:
+    """initialize pub/sub zmq client
+
+    Parameters
+    ----------
+    ip_address : str
+        the ip address to connect to
+    port : int
+        the port to connect to"""
+
+    ctx = zmq.Context.instance()
+
+    url: str = f"tcp://{ip_address}:{port}"
+    socket = ctx.socket(zmq.SUB)
+    socket.connect(url)
+    socket.setsockopt_string(zmq.SUBSCRIBE, "")
+    socket.setsockopt(zmq.RCVTIMEO, 1000)
+
+    log.info("client connected to %s", url)
+
+    return ctx, socket
+
+
 def main() -> None:
     """main function"""
-    leg_data: Final[dict[str, np.ndarray[np.real]]] = init()
+    ctx, socket = initialize_zmq_client(ip_address=sys.argv[1], port=int(sys.argv[2]))
     i = 1422
+    socket.subscribe(TOPIC)
 
-    while i != len(leg_data["LS"]) - 1:
+    while True:
+        try:
+            receive_data = socket.recv()
+            message = pb.LegData()
+            message.ParseFromString(receive_data)
+
+            log.debug("message: %s", message)
+        except zmq.error.Again:
+            log.error("Client timed out")
+            break
         screen.fill((0, 0, 0))
 
-        l_thigh = get_thigh_pos(data=leg_data["LT"][i], legside=LegSide.LEFT)
+        l_thigh = get_thigh_pos(
+            data=[message.left_thigh.x, message.left_thigh.y, message.left_thigh.z],
+            legside=LegSide.LEFT,
+        )
         l_knee = get_knee_pos(
             thigh=l_thigh,
-            thigh_pitch=leg_data["LT"][i],
+            thigh_pitch=[
+                message.left_thigh.x,
+                message.left_thigh.y,
+                message.left_thigh.z,
+            ],
             legside=LegSide.LEFT,
         )
         l_shank = get_shank_pos(
-            shank_data=leg_data["LS"][i],
+            shank_data=[
+                message.left_shank.x,
+                message.left_shank.y,
+                message.left_shank.z,
+            ],
             knee_pos=l_knee,
             legside=LegSide.LEFT,
         )
@@ -222,14 +239,25 @@ def main() -> None:
         pygame.draw.line(screen, (255, 255, 255), l_shank, l_knee)
         pygame.draw.line(screen, (255, 255, 255), l_knee, l_thigh)
 
-        r_thigh = get_thigh_pos(data=leg_data["RT"][i], legside=LegSide.RIGHT)
+        r_thigh = get_thigh_pos(
+            data=[message.right_thigh.x, message.right_thigh.y, message.right_thigh.z],
+            legside=LegSide.RIGHT,
+        )
         r_knee = get_knee_pos(
             thigh=r_thigh,
-            thigh_pitch=leg_data["RT"][i],  # convert_quat_to_euler(leg_data["RT"][i])
+            thigh_pitch=[
+                message.right_thigh.x,
+                message.right_thigh.y,
+                message.right_thigh.z,
+            ],
             legside=LegSide.RIGHT,
         )
         r_shank = get_shank_pos(
-            shank_data=leg_data["RS"][i],
+            shank_data=[
+                message.right_shank.x,
+                message.right_shank.y,
+                message.right_shank.z,
+            ],
             knee_pos=r_knee,
             legside=LegSide.RIGHT,
         )

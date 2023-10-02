@@ -13,15 +13,15 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16shank_thigh_send.proto\"\xe8\x01\n\x08instance\x12*\n\x0bright_shank\x18\x01 \x02(\x0b\x32\x15.instance.coordinates\x12)\n\nleft_shank\x18\x02 \x02(\x0b\x32\x15.instance.coordinates\x12*\n\x0bright_thigh\x18\x03 \x02(\x0b\x32\x15.instance.coordinates\x12)\n\nleft_thigh\x18\x04 \x02(\x0b\x32\x15.instance.coordinates\x1a.\n\x0b\x63oordinates\x12\t\n\x01x\x18\x01 \x02(\x02\x12\t\n\x01y\x18\x02 \x02(\x02\x12\t\n\x01z\x18\x03 \x02(\x02')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16shank_thigh_send.proto\"\xe3\x01\n\x07LegData\x12)\n\x0bright_shank\x18\x01 \x02(\x0b\x32\x14.LegData.coordinates\x12(\n\nleft_shank\x18\x02 \x02(\x0b\x32\x14.LegData.coordinates\x12)\n\x0bright_thigh\x18\x03 \x02(\x0b\x32\x14.LegData.coordinates\x12(\n\nleft_thigh\x18\x04 \x02(\x0b\x32\x14.LegData.coordinates\x1a.\n\x0b\x63oordinates\x12\t\n\x01x\x18\x01 \x02(\x02\x12\t\n\x01y\x18\x02 \x02(\x02\x12\t\n\x01z\x18\x03 \x02(\x02')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'shank_thigh_send_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
-  _globals['_INSTANCE']._serialized_start=27
-  _globals['_INSTANCE']._serialized_end=259
-  _globals['_INSTANCE_COORDINATES']._serialized_start=213
-  _globals['_INSTANCE_COORDINATES']._serialized_end=259
+  _globals['_LEGDATA']._serialized_start=27
+  _globals['_LEGDATA']._serialized_end=254
+  _globals['_LEGDATA_COORDINATES']._serialized_start=208
+  _globals['_LEGDATA_COORDINATES']._serialized_end=254
 # @@protoc_insertion_point(module_scope)
