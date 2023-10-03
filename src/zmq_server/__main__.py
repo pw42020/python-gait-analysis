@@ -16,9 +16,13 @@ from pathlib import Path
 from typing import Final
 
 import zmq
+import numpy as np
 
 PATH_TO_ASSETS: Final[Path] = Path(__file__).parent.parent.parent / "assets"
 sys.path.append(str(PATH_TO_ASSETS))
+
+# pylint: disable=import-error
+# pylint: disable=wrong-import-position
 
 from logging_formatter import CustomFormatter
 import shank_thigh_send_pb2 as pb  # protocol buffer python formatted library
@@ -51,8 +55,8 @@ def open_csv_file() -> dict[str, list]:
     dict[str, list]
         dictionary containing all the data from the csv file
     """
-    return_dictionary: dict[str, np.ndarray[float]] = {}
-    with open(PATH_TO_ASSETS / "leg_data.csv", newline="") as csvfile:
+    return_dictionary: dict[str, list[float]] = {}
+    with open(PATH_TO_ASSETS / "leg_data.csv", encoding="utf-8", newline="") as csvfile:
         reader = csv.reader(csvfile, delimiter=",")
         data = list(reader)[1:]
         return_dictionary.update(
@@ -90,13 +94,15 @@ def initialize_zmq_server(ip_address: str, port: int) -> tuple[zmq.Context, zmq.
     return ctx, server
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """main function of program that takes data and then
+    sends it to a client through ZMQ"""
     assert len(sys.argv) == 3
-    ctx, server = initialize_zmq_server(ip_address=sys.argv[1], port=int(sys.argv[2]))
+    _, server = initialize_zmq_server(ip_address=sys.argv[1], port=int(sys.argv[2]))
     leg_data: Final[dict[str, list]] = open_csv_file()
 
     for i in range(len(leg_data["LT"])):
-        """create a protobuf message and send it to the client"""
+        # create a protobuf message and send it to the client
         message = pb.LegData()
         message.left_thigh.x = leg_data["LT"][i][0]
         message.left_thigh.y = leg_data["LT"][i][1]
@@ -111,7 +117,17 @@ if __name__ == "__main__":
         message.right_shank.y = leg_data["RS"][i][1]
         message.right_shank.z = leg_data["RS"][i][2]
 
-        server.send_string(f"{TOPIC} {message.SerializeToString()}")
-        log.debug(f"sent message to {sys.argv[1]}:{sys.argv[2]} under topic {TOPIC}")
+        server.send(message.SerializeToString())
+        log.debug(
+            "sent message %s to %s:%sunder topic %s",
+            f"{TOPIC}  {message.SerializeToString()}",
+            sys.argv[1],
+            sys.argv[2],
+            TOPIC,
+        )
         time.sleep(1 / SAMPLES_PER_SECOND)
     server.close()
+
+
+if __name__ == "__main__":
+    main()

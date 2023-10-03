@@ -16,7 +16,7 @@ the position of everything and then the program will calculate the rest"""
 import logging
 import sys
 import time
-import csv
+from typing import Optional
 from enum import Enum, auto
 from typing import Final
 from pathlib import Path
@@ -124,29 +124,8 @@ def convert_quat_to_euler(quat: np.ndarray[np.real]) -> np.ndarray[np.real]:
     return euler_angles
 
 
-def get_thigh_pos(data: np.ndarray[np.real], legside: LegSide) -> tuple[np.real]:
-    """get the coordinates of the thigh
-
-    Parameters
-    ----------
-    data : np.ndarray[np.real]
-        the data to get the coordinates of
-
-    Returns
-    -------
-    tuple[np.real]
-        the coordinates of the data
-
-    Notes
-    -----
-    The coordinates are centered meaning that at (0, 0) the coordinates will
-    be in the middle of the screen"""
-
-    return DEFAULT_LEG_POSITIONS["LT" if legside == LegSide.LEFT else "RT"]
-
-
 def get_shank_pos(
-    shank_data: np.ndarray[np.real], knee_pos: tuple[float, float], legside: LegSide
+    shank_data: np.ndarray[np.real], knee_pos: tuple[float, float]
 ) -> tuple[np.real]:
     """get the coordinates of the thigh
 
@@ -188,7 +167,7 @@ def initialize_zmq_client(ip_address: str, port: int) -> tuple[zmq.Context, zmq.
     url: str = f"tcp://{ip_address}:{port}"
     socket = ctx.socket(zmq.SUB)
     socket.connect(url)
-    socket.setsockopt_string(zmq.SUBSCRIBE, "")
+    socket.setsockopt(zmq.SUBSCRIBE, b"")
     socket.setsockopt(zmq.RCVTIMEO, 1000)
 
     log.info("client connected to %s", url)
@@ -198,43 +177,41 @@ def initialize_zmq_client(ip_address: str, port: int) -> tuple[zmq.Context, zmq.
 
 def main() -> None:
     """main function"""
-    ctx, socket = initialize_zmq_client(ip_address=sys.argv[1], port=int(sys.argv[2]))
+    _, socket = initialize_zmq_client(ip_address=sys.argv[1], port=int(sys.argv[2]))
     i = 1422
-    socket.subscribe(TOPIC)
+    socket.subscribe("")
 
     while True:
+        message: Optional[bytes] = None
         try:
-            receive_data = socket.recv()
-            message = pb.LegData()
-            message.ParseFromString(receive_data)
+            message = socket.recv()
+            # assert message_topic == TOPIC
+            leg_data = pb.LegData()
+            leg_data.ParseFromString(message)
 
-            log.debug("message: %s", message)
+            log.debug("leg_data: %s", leg_data)
         except zmq.error.Again:
             log.error("Client timed out")
             break
         screen.fill((0, 0, 0))
 
-        l_thigh = get_thigh_pos(
-            data=[message.left_thigh.x, message.left_thigh.y, message.left_thigh.z],
-            legside=LegSide.LEFT,
-        )
+        l_thigh = DEFAULT_LEG_POSITIONS["LT"]
         l_knee = get_knee_pos(
             thigh=l_thigh,
             thigh_pitch=[
-                message.left_thigh.x,
-                message.left_thigh.y,
-                message.left_thigh.z,
+                leg_data.left_thigh.x,
+                leg_data.left_thigh.y,
+                leg_data.left_thigh.z,
             ],
             legside=LegSide.LEFT,
         )
         l_shank = get_shank_pos(
             shank_data=[
-                message.left_shank.x,
-                message.left_shank.y,
-                message.left_shank.z,
+                leg_data.left_shank.x,
+                leg_data.left_shank.y,
+                leg_data.left_shank.z,
             ],
             knee_pos=l_knee,
-            legside=LegSide.LEFT,
         )
 
         log.debug("l_thigh: %s", l_thigh)
@@ -245,27 +222,23 @@ def main() -> None:
         pygame.draw.line(screen, (255, 255, 255), l_shank, l_knee)
         pygame.draw.line(screen, (255, 255, 255), l_knee, l_thigh)
 
-        r_thigh = get_thigh_pos(
-            data=[message.right_thigh.x, message.right_thigh.y, message.right_thigh.z],
-            legside=LegSide.RIGHT,
-        )
+        r_thigh = DEFAULT_LEG_POSITIONS["RT"]
         r_knee = get_knee_pos(
             thigh=r_thigh,
             thigh_pitch=[
-                message.right_thigh.x,
-                message.right_thigh.y,
-                message.right_thigh.z,
+                leg_data.right_thigh.x,
+                leg_data.right_thigh.y,
+                leg_data.right_thigh.z,
             ],
             legside=LegSide.RIGHT,
         )
         r_shank = get_shank_pos(
             shank_data=[
-                message.right_shank.x,
-                message.right_shank.y,
-                message.right_shank.z,
+                leg_data.right_shank.x,
+                leg_data.right_shank.y,
+                leg_data.right_shank.z,
             ],
             knee_pos=r_knee,
-            legside=LegSide.RIGHT,
         )
 
         log.debug("r_thigh: %s", r_thigh)
@@ -288,6 +261,9 @@ def main() -> None:
         # refreshes screen
         pygame.display.flip()
         i += 1
+
+    socket.unsubscribe(TOPIC)
+    socket.close()
 
 
 if __name__ == "__main__":
