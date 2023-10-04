@@ -12,4 +12,4 @@ WORKDIR /app/src
 
 EXPOSE 5555
 
-CMD ["poetry","run","python", "-m", "zmq_server", "127.0.0.1", "5555"]
+CMD ["poetry","run","python", "-m", "zmq_server"]

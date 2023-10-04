@@ -5,8 +5,6 @@ version: "3"
 services:
   # building zmq server that transfers data from csv to python-analyze-gait
   zmqserver:
-    # image:
-    #   - "pwalsh4/zmqserver"
     build:
       context: .
       dockerfile: docker/zmq_server.Dockerfile
@@ -16,15 +14,30 @@ services:
       - "5555:5555"
     depends_on:
       - "gait-analysis"
+    environment:
+      - ZMQ_SERVER_IP=192.168.92.22
+      - ZMQ_SERVER_PORT=5555
+    networks:
+      zmq-network:
+        ipv4_address: "192.168.92.22"
   gait-analysis:
-    # image:
-    #   - "pwalsh4/gait_visualization:latest"
     build:
       context: .
       dockerfile: docker/analyze_gait.Dockerfile
-    # network_mode: "host"
+    environment:
+      - ZMQ_SERVER_IP=192.168.92.22
+      - ZMQ_SERVER_PORT=5555
+      - DISPLAY=$DISPLAY
     volumes:
       - ./:/usr/src/app
+      - /tmp/.X11-unix:/tmp/.X11-unix
       - $HOME/.Xauthority:/root/.Xauthority:rw
-    links:
-      - "zmqserver"
+    networks:
+      zmq-network:
+        ipv4_address: "192.168.92.21"
+networks:
+  zmq-network:
+    ipam:
+      driver: default
+      config:
+        - subnet: "192.168.92.0/24"

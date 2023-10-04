@@ -14,4 +14,4 @@ WORKDIR /app/src
 
 EXPOSE 5555
 
-CMD ["poetry","run","python", "-m", "analyze_gait", "zmqserver", "5555"]
+CMD ["poetry", "run", "python", "-m", "analyze_gait"]
