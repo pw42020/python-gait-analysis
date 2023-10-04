@@ -1,29 +1,30 @@
 # create zmq network for sending the data and having it mounted
 # through the docker-compose file
-version: '3'
+version: "3"
 
 services:
   # building zmq server that transfers data from csv to python-analyze-gait
-  zmq-server:
-    image:
-      - pwalsh4/zmqserver
+  zmqserver:
+    # image:
+    #   - "pwalsh4/zmqserver"
     build:
       context: .
       dockerfile: docker/zmq_server.Dockerfile
     volumes:
       - ./:/usr/src/app
     ports:
-      - 5555:5555
+      - "5555:5555"
+    depends_on:
+      - "gait-analysis"
   gait-analysis:
-    image:
-      - pwalsh4/gaitvisualization
+    # image:
+    #   - "pwalsh4/gait_visualization:latest"
     build:
       context: .
       dockerfile: docker/analyze_gait.Dockerfile
-      environment:
-        - DISPLAY=${DISPLAY}
-      network_mode: host
+    # network_mode: "host"
     volumes:
       - ./:/usr/src/app
-      - /tmp/.X11-unix:/tmp/.X11-unix
-
+      - $HOME/.Xauthority:/root/.Xauthority:rw
+    links:
+      - "zmqserver"
