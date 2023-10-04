@@ -5,14 +5,25 @@ version: '3'
 services:
   # building zmq server that transfers data from csv to python-analyze-gait
   zmq-server:
-    build: ./src/zmq_server
+    image:
+      - pwalsh4/zmqserver
+    build:
+      context: .
+      dockerfile: docker/zmq_server.Dockerfile
     volumes:
       - ./:/usr/src/app
     ports:
       - 5555:5555
-  python-analyze-gait:
+  gait-analysis:
+    image:
+      - pwalsh4/gaitvisualization
+    build:
+      context: .
+      dockerfile: docker/analyze_gait.Dockerfile
+      environment:
+        - DISPLAY=${DISPLAY}
+      network_mode: host
     volumes:
       - ./:/usr/src/app
-    ports:
-      - 5556:5556
+      - /tmp/.X11-unix:/tmp/.X11-unix
 
