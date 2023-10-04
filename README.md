@@ -11,7 +11,7 @@ By Liam Beguhn, Rosaha Cho, Alexander Tollman, Patrick Walsh
 <img src="./assets/Leg_moving.gif">
 </div>
 
-Initial Python scripted module for analyzing gait from a large dataset from Benchmark Datasets for Bilateral Lower-Limb Neuromechanical Signals from Wearable Sensors during Unassisted Locomotion in Able-Bodied Individuals.
+Initial Python scripted module for analyzing gait from a large dataset from **Benchmark Datasets for Bilateral Lower-Limb Neuromechanical Signals from Wearable Sensors during Unassisted Locomotion in Able-Bodied Individuals**.
 
 If curious about the exacts of the data and the study, the link to the study is available [here](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7805660/).
 
