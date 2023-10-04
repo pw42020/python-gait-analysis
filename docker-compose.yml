@@ -1,0 +1,18 @@
+# create zmq network for sending the data and having it mounted
+# through the docker-compose file
+version: '3'
+
+services:
+  # building zmq server that transfers data from csv to python-analyze-gait
+  zmq-server:
+    build: ./src/zmq_server
+    volumes:
+      - ./:/usr/src/app
+    ports:
+      - 5555:5555
+  python-analyze-gait:
+    volumes:
+      - ./:/usr/src/app
+    ports:
+      - 5556:5556
+
