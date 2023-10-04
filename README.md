@@ -3,6 +3,7 @@
 <img src="https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54">
 <img src="https://img.shields.io/badge/linting%20-pylint-FFD700.svg">
 </div>
+
 ## Python Gait Analysis Module
 By Liam Beguhn, Rosaha Cho, Alexander Tollman, Patrick Walsh
 
