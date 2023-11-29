@@ -1,17 +1,11 @@
 FROM python:3.10.13-bullseye
 
-# install poetry
-
-COPY .. /app
-
-WORKDIR /app
+COPY poetry.lock pyproject.toml /app/
 
 RUN pip install poetry
 
+WORKDIR /app
+
 RUN python -m poetry install
 
-WORKDIR /app/src
-
 EXPOSE 5555
-
-CMD ["poetry", "run", "python", "-m", "analyze_gait"]

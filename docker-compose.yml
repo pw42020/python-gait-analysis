@@ -7,9 +7,9 @@ services:
   zmqserver:
     build:
       context: .
-      dockerfile: docker/zmq_server.Dockerfile
+      dockerfile: docker/analyze_gait.Dockerfile
     volumes:
-      - ./:/usr/src/app
+      - ./:/app
     ports:
       - "5555:5555"
     depends_on:
@@ -17,9 +17,11 @@ services:
     environment:
       - ZMQ_SERVER_IP=192.168.92.22
       - ZMQ_SERVER_PORT=5555
+    working_dir: /app/src
     networks:
       zmq-network:
         ipv4_address: "192.168.92.22"
+    command: poetry run python -m zmq_server 192.168.92.22 5555
   gait-analysis:
     build:
       context: .
@@ -27,14 +29,16 @@ services:
     environment:
       - ZMQ_SERVER_IP=192.168.92.22
       - ZMQ_SERVER_PORT=5555
-      - DISPLAY=$DISPLAY
+      - DISPLAY=host.docker.internal:0
     volumes:
-      - ./:/usr/src/app
-      - /tmp/.X11-unix:/tmp/.X11-unix
-      - $HOME/.Xauthority:/root/.Xauthority:rw
+      - ./:/app
+      # - /tmp/.X11-unix:/tmp/.X11-unix
+      # - $HOME/.Xauthority:/root/.Xauthority:rw
+    working_dir: /app/src
     networks:
       zmq-network:
         ipv4_address: "192.168.92.21"
+    command: poetry run python -m analyze_gait 192.168.92.22 5555
 networks:
   zmq-network:
     ipam:

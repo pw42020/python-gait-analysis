@@ -59,7 +59,7 @@ DEFAULT_LEG_POSITIONS: Final[dict[str, tuple[int, int]]] = {
     "RT": (WIDTH / 2 + LEG_TO_CENTER, HEIGHT / 2 - LENGTH),
 }
 
-SAMPLES_PER_SECOND: Final[int] = 500
+SAMPLES_PER_SECOND: Final[int] = 30
 
 
 pygame.display.init()

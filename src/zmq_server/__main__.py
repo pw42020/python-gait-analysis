@@ -29,7 +29,7 @@ import shank_thigh_send_pb2 as pb  # protocol buffer python formatted library
 
 # global variables
 
-SAMPLES_PER_SECOND: Final[int] = 500
+SAMPLES_PER_SECOND: Final[int] = 30
 TOPIC: Final[str] = "LEG_DATA"
 
 # configure logging
@@ -56,20 +56,20 @@ def open_csv_file() -> dict[str, list]:
         dictionary containing all the data from the csv file
     """
     return_dictionary: dict[str, list[float]] = {}
-    with open(PATH_TO_ASSETS / "leg_data.csv", encoding="utf-8", newline="") as csvfile:
+    with open(PATH_TO_ASSETS / "data.run", encoding="utf-8", newline="") as csvfile:
         reader = csv.reader(csvfile, delimiter=",")
         data = list(reader)[1:]
         return_dictionary.update(
-            {"RS": [[float(row[0]), float(row[1]), float(row[2])] for row in data]}
+            {"LS": [[float(row[0]), float(row[1]), float(row[2])] for row in data]}
         )
         return_dictionary.update(
-            {"RT": [[float(row[6]), float(row[7]), float(row[8])] for row in data]}
+            {"LT": [[float(row[3]), float(row[4]), float(row[5])] for row in data]}
         )
         return_dictionary.update(
-            {"LS": [[float(row[12]), float(row[13]), float(row[14])] for row in data]}
+            {"RS": [[float(row[6]), float(row[7]), float(row[8])] for row in data]}
         )
         return_dictionary.update(
-            {"LT": [[float(row[18]), float(row[19]), float(row[20])] for row in data]}
+            {"RT": [[float(row[9]), float(row[10]), float(row[11])] for row in data]}
         )
 
         del data  # to get some more space
